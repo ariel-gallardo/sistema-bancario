@@ -2,15 +2,35 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var cache = builder.AddRedis("cache");
 
-var apiService = builder.AddProject<Projects.SistemaBancario_ApiService>("apiservice")
-    .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.SistemaBancario_Web>("webfrontend")
-    .WithExternalHttpEndpoints()
-    .WithHttpHealthCheck("/health")
+var clientes = builder.AddProject<Projects.Clientes>("clientes")
     .WithReference(cache)
     .WaitFor(cache)
-    .WithReference(apiService)
-    .WaitFor(apiService);
+    .WithHttpHealthCheck("/health");
+
+var cuentas = builder.AddProject<Projects.Cuentas>("cuentas")
+    .WithReference(cache)
+    .WaitFor(cache)
+    .WithHttpHealthCheck("/health");
+
+var tarjetas = builder.AddProject<Projects.Tarjetas>("tarjetas")
+    .WithReference(cache)
+    .WaitFor(cache)
+    .WithHttpHealthCheck("/health");
+
+var pagos = builder.AddProject<Projects.Pagos>("pagos")
+    .WithReference(cache)
+    .WaitFor(cache)
+    .WithHttpHealthCheck("/health");
+
+var web = builder.AddNpmApp("frontend", "..\\frontend", "dev")
+    .WithReference(clientes)
+    .WithReference(cuentas)
+    .WithReference(tarjetas)
+    .WithReference(pagos)
+    .WaitFor(clientes)
+    .WaitFor(cuentas)
+    .WaitFor(tarjetas)
+    .WaitFor(pagos);
 
 builder.Build().Run();
