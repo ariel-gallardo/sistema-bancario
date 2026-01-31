@@ -33,12 +33,12 @@ Implementar una vista de **resumen** para el home banking del cliente que muestr
 ## Requerimientos técnicos
 
 ### Backend (.NET)
+- Separar los proyectos por microservicio por capas. 
 - Utilizar Aspire .NET
 - Crear pruebas unitarias y de integración.
-- Implementar Event Store.
+- Utilizar GraphQL
 - Utilizar CQRS (Command Query Responsibility Segregation) con **Mediatr**.
 - Utilizar **.Net 10** como framework principal.
-- Utilizar **Event Sourcing**.
 - Diseño del modelo de datos (entidades, eventos y relaciones).
 - Implementar **Pagos y Movimientos**.
 - Para **Clientes, Cuentas y Tarjetas**:
@@ -52,6 +52,7 @@ Implementar una vista de **resumen** para el home banking del cliente que muestr
 
 ### Frontend (React.js)
 - Utilizar **React.js** como framework principal.
+- Separar componentes.
 - Manejo de estado global con **Redux.js**.
 - Componentes visuales con **Material UI**.
 - Consumir los endpoints del backend para:
