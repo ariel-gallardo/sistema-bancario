@@ -33,6 +33,7 @@ Implementar una vista de **resumen** para el home banking del cliente que muestr
 ## Requerimientos técnicos
 
 ### Backend (.NET)
+- Utilizar Aspire .NET
 - Crear pruebas unitarias y de integración.
 - Implementar Event Store.
 - Utilizar CQRS (Command Query Responsibility Segregation) con **Mediatr**.
