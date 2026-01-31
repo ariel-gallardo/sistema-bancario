@@ -1,2 +1,7 @@
 <Solution>
+  <Folder Name="/Elementos de la solución/">
+    <File Path=".github/prompts/Instrucciones.prompt.md" />
+  </Folder>
+  <Project Path="SistemaBancario.AppHost/SistemaBancario.AppHost.csproj" Id="5547535b-6d87-4446-96c3-589dd9ba82a1" />
+  <Project Path="SistemaBancario.ServiceDefaults/SistemaBancario.ServiceDefaults.csproj" />
 </Solution>
