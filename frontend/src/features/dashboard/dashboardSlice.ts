@@ -2,19 +2,25 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { apiConfig } from '../../config/api';
 import type { RootState } from '../../store';
-import type { AccountSummaryResponse, TarjetaMovimientosResponse } from '../../types/api';
+import type { AccountSummaryResponse, TarjetaMovimientosResponse, TarjetaResumenResponse } from '../../types/api';
 
 interface DashboardState {
   account?: AccountSummaryResponse;
   card?: TarjetaMovimientosResponse;
+  cards: TarjetaResumenResponse[];
+  selectedCardId: string | null;
   favoriteAccountId: string | null;
+  cardStatus: 'idle' | 'loading';
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error?: string;
 }
 
 const initialState: DashboardState = {
   status: 'idle',
+  cardStatus: 'idle',
   favoriteAccountId: null,
+  cards: [],
+  selectedCardId: null,
 };
 
 const buildAuthHeaders = (token: string) => ({
@@ -43,8 +49,52 @@ const resolveFavoriteAccountId = (summary?: AccountSummaryResponse) => {
   return summary.otrasCuentas.find((account) => account.esFavorita)?.cuentaId ?? null;
 };
 
+const normalizeId = (value?: string | null) => (value && value.length > 0 ? value : null);
+
+const selectCardId = (
+  cards: TarjetaResumenResponse[],
+  preferredId?: string | null,
+  fallbackId?: string | null,
+) => {
+  if (cards.length === 0) {
+    return null;
+  }
+
+  const normalizedPreferred = normalizeId(preferredId);
+  if (normalizedPreferred && cards.some((card) => card.tarjetaId === normalizedPreferred)) {
+    return normalizedPreferred;
+  }
+
+  const normalizedFallback = normalizeId(fallbackId);
+  if (normalizedFallback && cards.some((card) => card.tarjetaId === normalizedFallback)) {
+    return normalizedFallback;
+  }
+
+  const principal = cards.find((card) => card.esPrincipal);
+  if (principal) {
+    return principal.tarjetaId;
+  }
+
+  return cards[0].tarjetaId;
+};
+
+const requestCardMovements = async (tarjetaId: string, headers: Record<string, string>) => {
+  const response = await axios.get<TarjetaMovimientosResponse>(
+    `${apiConfig.tarjetas}/api/tarjetas/${tarjetaId}/movimientos?take=5`,
+    { headers },
+  );
+  return response.data;
+};
+
+type DashboardPayload = {
+  account: AccountSummaryResponse;
+  cards: TarjetaResumenResponse[];
+  card?: TarjetaMovimientosResponse;
+  selectedCardId: string | null;
+};
+
 export const fetchDashboardData = createAsyncThunk<
-  { account: AccountSummaryResponse; card: TarjetaMovimientosResponse },
+  DashboardPayload,
   void,
   { state: RootState; rejectValue: string }
 >('dashboard/fetch', async (_, { getState, rejectWithValue }) => {
@@ -55,21 +105,30 @@ export const fetchDashboardData = createAsyncThunk<
 
   try {
     const headers = buildAuthHeaders(token);
-    const [accountResponse, cardResponse] = await Promise.all([
-      axios.get<AccountSummaryResponse>(`${apiConfig.cuentas}/api/cuentas/principal`, { headers }),
-      axios.get<TarjetaMovimientosResponse>(`${apiConfig.tarjetas}/api/tarjetas/principal/movimientos?take=5`, {
-        headers,
-      }),
-    ]);
+    const accountResponse = await axios.get<AccountSummaryResponse>(`${apiConfig.cuentas}/api/cuentas/principal`, {
+      headers,
+    });
+    const account = accountResponse.data;
 
-    return { account: accountResponse.data, card: cardResponse.data };
+    const cardsResponse = await axios.get<TarjetaResumenResponse[]>(
+      `${apiConfig.tarjetas}/api/tarjetas/cuentas/${account.cuentaId}`,
+      { headers },
+    );
+    const cards = cardsResponse.data;
+
+    const preferredCardId = getState().dashboard.selectedCardId;
+    const fallbackCardId = getState().auth.profile?.tarjetaPrincipalId ?? null;
+    const selectedCardId = selectCardId(cards, preferredCardId, fallbackCardId);
+    const card = selectedCardId ? await requestCardMovements(selectedCardId, headers) : undefined;
+
+    return { account, cards, card, selectedCardId };
   } catch (error) {
     return rejectWithValue(getDashboardErrorMessage(error));
   }
 });
 
 export const fetchAccountById = createAsyncThunk<
-  AccountSummaryResponse,
+  DashboardPayload,
   string,
   { state: RootState; rejectValue: string }
 >('dashboard/fetchById', async (accountId, { getState, rejectWithValue }) => {
@@ -81,7 +140,39 @@ export const fetchAccountById = createAsyncThunk<
   try {
     const headers = buildAuthHeaders(token);
     const response = await axios.get<AccountSummaryResponse>(`${apiConfig.cuentas}/api/cuentas/${accountId}`, { headers });
-    return response.data;
+    const account = response.data;
+
+    const cardsResponse = await axios.get<TarjetaResumenResponse[]>(
+      `${apiConfig.tarjetas}/api/tarjetas/cuentas/${accountId}`,
+      { headers },
+    );
+    const cards = cardsResponse.data;
+
+    const preferredCardId = getState().dashboard.selectedCardId;
+    const fallbackCardId = getState().auth.profile?.tarjetaPrincipalId ?? null;
+    const selectedCardId = selectCardId(cards, preferredCardId, fallbackCardId);
+    const card = selectedCardId ? await requestCardMovements(selectedCardId, headers) : undefined;
+
+    return { account, cards, card, selectedCardId };
+  } catch (error) {
+    return rejectWithValue(getDashboardErrorMessage(error));
+  }
+});
+
+export const fetchCardMovements = createAsyncThunk<
+  { card: TarjetaMovimientosResponse; selectedCardId: string },
+  string,
+  { state: RootState; rejectValue: string }
+>('dashboard/fetchCardMovements', async (tarjetaId, { getState, rejectWithValue }) => {
+  const token = getState().auth.token;
+  if (!token) {
+    return rejectWithValue('Token no disponible');
+  }
+
+  try {
+    const headers = buildAuthHeaders(token);
+    const card = await requestCardMovements(tarjetaId, headers);
+    return { card, selectedCardId: tarjetaId };
   } catch (error) {
     return rejectWithValue(getDashboardErrorMessage(error));
   }
@@ -119,13 +210,20 @@ const dashboardSlice = createSlice({
     builder
       .addCase(fetchDashboardData.pending, (state) => {
         state.status = 'loading';
+        state.cardStatus = 'loading';
         state.error = undefined;
+        state.card = undefined;
+        state.cards = [];
+        state.selectedCardId = null;
       })
       .addCase(fetchDashboardData.fulfilled, (state, action) => {
         state.status = 'succeeded';
         state.account = action.payload.account;
+        state.cards = action.payload.cards;
         state.card = action.payload.card;
+        state.selectedCardId = action.payload.selectedCardId;
         state.favoriteAccountId = resolveFavoriteAccountId(action.payload.account);
+        state.cardStatus = 'idle';
         state.error = undefined;
       })
       .addCase(fetchDashboardData.rejected, (state, action) => {
@@ -133,19 +231,41 @@ const dashboardSlice = createSlice({
         state.error = action.payload ?? action.error.message ?? 'Error inesperado';
         state.account = undefined;
         state.card = undefined;
+        state.cards = [];
+        state.selectedCardId = null;
         state.favoriteAccountId = null;
+        state.cardStatus = 'idle';
       })
       .addCase(fetchAccountById.pending, (state) => {
         state.status = 'loading';
+        state.cardStatus = 'loading';
         state.error = undefined;
       })
       .addCase(fetchAccountById.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.account = action.payload;
-        state.favoriteAccountId = resolveFavoriteAccountId(action.payload);
+        state.account = action.payload.account;
+        state.cards = action.payload.cards;
+        state.card = action.payload.card;
+        state.selectedCardId = action.payload.selectedCardId;
+        state.favoriteAccountId = resolveFavoriteAccountId(action.payload.account);
+        state.cardStatus = 'idle';
       })
       .addCase(fetchAccountById.rejected, (state, action) => {
         state.status = 'failed';
+        state.error = action.payload ?? action.error.message ?? 'Error inesperado';
+        state.cardStatus = 'idle';
+      })
+      .addCase(fetchCardMovements.pending, (state) => {
+        state.cardStatus = 'loading';
+        state.error = undefined;
+      })
+      .addCase(fetchCardMovements.fulfilled, (state, action) => {
+        state.cardStatus = 'idle';
+        state.card = action.payload.card;
+        state.selectedCardId = action.payload.selectedCardId;
+      })
+      .addCase(fetchCardMovements.rejected, (state, action) => {
+        state.cardStatus = 'idle';
         state.error = action.payload ?? action.error.message ?? 'Error inesperado';
       })
       .addCase(updateFavoriteAccount.pending, (state) => {

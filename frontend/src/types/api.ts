@@ -43,6 +43,7 @@ export interface MovimientoTarjetaResponse {
 
 export interface TarjetaMovimientosResponse {
   tarjetaId: string;
+  cuentaId: string;
   marca: string;
   numeroEnmascarado: string;
   limite: number;
@@ -52,6 +53,17 @@ export interface TarjetaMovimientosResponse {
   fechaCierre: string;
   fechaVencimiento: string;
   movimientos: MovimientoTarjetaResponse[];
+}
+
+export interface TarjetaResumenResponse {
+  tarjetaId: string;
+  cuentaId: string;
+  marca: string;
+  numeroEnmascarado: string;
+  limite: number;
+  saldoUtilizado: number;
+  disponible: number;
+  esPrincipal: boolean;
 }
 
 export interface AdminOverviewResponse {

@@ -4,7 +4,7 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import './App.css';
 import { useAppDispatch, useAppSelector } from './hooks';
 import { login, logout } from './features/auth/authSlice';
-import { fetchAccountById, fetchDashboardData, updateFavoriteAccount } from './features/dashboard/dashboardSlice';
+import { fetchAccountById, fetchCardMovements, fetchDashboardData, updateFavoriteAccount } from './features/dashboard/dashboardSlice';
 import { demoCredentials } from './config/api';
 import { formatCurrency, formatDate } from './utils/formatters';
 import LoginView from './components/LoginView';
@@ -76,6 +76,16 @@ const App = () => {
     void dispatch(updateFavoriteAccount(nextFavorite));
   };
 
+  const handleSelectCardMovements = useCallback(
+    (cardId: string) => {
+      if (!cardId || cardId === dashboard.selectedCardId) {
+        return;
+      }
+      void dispatch(fetchCardMovements(cardId));
+    },
+    [dashboard.selectedCardId, dispatch],
+  );
+
   useEffect(() => {
     if (auth.token) {
       dispatch(fetchDashboardData());
@@ -83,7 +93,9 @@ const App = () => {
   }, [auth.token, dispatch]);
 
   const isLoadingDashboard = dashboard.status === 'loading';
-  const hasData = Boolean(dashboard.account && dashboard.card);
+  const isCardLoading = isLoadingDashboard || dashboard.cardStatus === 'loading';
+  const hasAccountData = Boolean(dashboard.account);
+  const hasCardData = Boolean(dashboard.card && dashboard.cards.length > 0);
 
   const accountAlias = dashboard.account?.alias ?? 'Cuenta sueldo';
 
@@ -103,6 +115,14 @@ const App = () => {
 
     return [principal, ...dashboard.account.otrasCuentas];
   }, [dashboard.account]);
+
+  const cardAccountAlias = useMemo(() => {
+    if (!dashboard.card) {
+      return undefined;
+    }
+    const target = availableAccounts.find((account) => account.cuentaId === dashboard.card?.cuentaId);
+    return target?.alias;
+  }, [availableAccounts, dashboard.card]);
 
   useEffect(() => {
     if (!availableAccounts.length) {
@@ -235,7 +255,7 @@ const App = () => {
                     <Grid item xs={12} md={7}>
                       <AccountCard
                         isLoading={isLoadingDashboard}
-                        hasData={hasData}
+                        hasData={hasAccountData}
                         accountSubtitle={accountSubtitle}
                         selectedAccount={selectedAccount}
                         account={dashboard.account}
@@ -251,9 +271,13 @@ const App = () => {
 
                     <Grid item xs={12} md={5}>
                       <MovementsCard
-                        isLoading={isLoadingDashboard}
-                        hasData={hasData}
+                        isLoading={isCardLoading}
+                        hasData={hasCardData}
                         card={dashboard.card}
+                        cards={dashboard.cards}
+                        selectedCardId={dashboard.selectedCardId}
+                        onSelectCard={handleSelectCardMovements}
+                        cardAccountAlias={cardAccountAlias}
                         movementAccentColors={movementAccentColors}
                         formatCurrency={formatCurrency}
                         formatDate={formatDate}
