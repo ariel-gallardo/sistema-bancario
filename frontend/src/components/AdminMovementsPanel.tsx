@@ -1,4 +1,4 @@
-import { type ChangeEvent, useMemo, useState } from 'react';
+import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -14,11 +14,14 @@ import {
 } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import AddCardRoundedIcon from '@mui/icons-material/AddCardRounded';
+import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { apiConfig } from '../config/api';
-import { fetchDashboardData } from '../features/dashboard/dashboardSlice';
+import { fetchAccountById, fetchCardMovements, fetchDashboardData } from '../features/dashboard/dashboardSlice';
 import { useAppDispatch, useAppSelector } from '../hooks';
+import type { AccountSnapshot } from '../types/api';
+import { resolveCardBrand } from '../utils/cardBrand';
 
 interface MovimientoFormState {
   comercio: string;
@@ -40,19 +43,84 @@ const AdminMovementsPanel = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const token = useAppSelector((state) => state.auth.token);
-  const profile = useAppSelector((state) => state.auth.profile);
+  const dashboard = useAppSelector((state) => state.dashboard);
 
   const [formState, setFormState] = useState<MovimientoFormState>(defaultFormState);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | undefined>(undefined);
-
-  const tarjetaId = profile?.tarjetaPrincipalId ?? null;
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(dashboard.account?.cuentaId ?? null);
+  const [selectedTarjetaId, setSelectedTarjetaId] = useState<string | null>(dashboard.selectedCardId ?? null);
 
   const categories = useMemo(
     () =>
       ['Servicios', 'Retail', 'Tecnología', 'Gastronomía', 'Viajes', 'Supermercado', 'Salud', 'Educación', 'Otros'] as const,
     [],
   );
+
+  useEffect(() => {
+    if (token && !dashboard.account && dashboard.status === 'idle') {
+      dispatch(fetchDashboardData());
+    }
+  }, [dashboard.account, dashboard.status, dispatch, token]);
+
+  useEffect(() => {
+    if (dashboard.account) {
+      setSelectedAccountId(dashboard.account.cuentaId);
+    }
+  }, [dashboard.account?.cuentaId]);
+
+  useEffect(() => {
+    if (!dashboard.cards.length) {
+      setSelectedTarjetaId(null);
+      return;
+    }
+    setSelectedTarjetaId(dashboard.selectedCardId ?? dashboard.cards[0].tarjetaId);
+  }, [dashboard.cards, dashboard.selectedCardId]);
+
+  const availableAccounts = useMemo<AccountSnapshot[]>(() => {
+    if (!dashboard.account) {
+      return [];
+    }
+
+    const principal: AccountSnapshot = {
+      cuentaId: dashboard.account.cuentaId,
+      alias: dashboard.account.alias,
+      moneda: dashboard.account.moneda,
+      saldoActual: dashboard.account.saldoActual,
+      esPrincipal: dashboard.account.esPrincipal,
+      esFavorita: dashboard.account.esFavorita,
+    };
+
+    return [principal, ...dashboard.account.otrasCuentas];
+  }, [dashboard.account]);
+
+  const selectedCardSummary = useMemo(
+    () => dashboard.cards.find((cardOption) => cardOption.tarjetaId === selectedTarjetaId),
+    [dashboard.cards, selectedTarjetaId],
+  );
+  const selectedCardBrand = useMemo(
+    () => resolveCardBrand(selectedCardSummary?.marca),
+    [selectedCardSummary?.marca],
+  );
+  const selectedAccountAlias = useMemo(
+    () => availableAccounts.find((account) => account.cuentaId === selectedAccountId)?.alias,
+    [availableAccounts, selectedAccountId],
+  );
+
+  const handleAccountChange = (accountId: string) => {
+    if (!accountId || accountId === selectedAccountId) {
+      return;
+    }
+    setSelectedAccountId(accountId);
+    void dispatch(fetchAccountById(accountId));
+  };
+
+  const handleCardChange = (cardId: string) => {
+    setSelectedTarjetaId(cardId);
+    if (cardId) {
+      void dispatch(fetchCardMovements(cardId));
+    }
+  };
 
   const handleChange = (field: keyof MovimientoFormState) => (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
@@ -65,8 +133,8 @@ const AdminMovementsPanel = () => {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!token || !tarjetaId) {
-      setError('No encontramos una tarjeta principal para registrar movimientos.');
+    if (!token || !selectedTarjetaId) {
+      setError('Seleccioná una tarjeta antes de registrar movimientos.');
       setStatus('error');
       return;
     }
@@ -84,7 +152,7 @@ const AdminMovementsPanel = () => {
       };
 
       await axios.post(
-        `${apiConfig.tarjetas}/api/tarjetas/${tarjetaId}/movimientos`,
+        `${apiConfig.tarjetas}/api/tarjetas/${selectedTarjetaId}/movimientos`,
         payload,
         {
           headers: {
@@ -116,11 +184,11 @@ const AdminMovementsPanel = () => {
     !formState.categoria ||
     !formState.importe ||
     Number.isNaN(Number(formState.importe)) ||
-    !tarjetaId ||
+    !selectedTarjetaId ||
     status === 'loading';
 
   return (
-    <Container maxWidth="md" className="admin-panel-container">
+    <Container maxWidth="lg" className="admin-panel-container">
       <Stack spacing={3} py={6}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
@@ -141,14 +209,73 @@ const AdminMovementsPanel = () => {
           </Button>
         </Stack>
 
-        <Paper elevation={3} sx={{ p: 4, borderRadius: 4 }}>
+        <Paper elevation={3} sx={{ p: { xs: 3, md: 5 }, borderRadius: 4 }}>
           <Stack spacing={3} component="form" onSubmit={handleSubmit}>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Chip color="primary" label="Administración" icon={<AddCardRoundedIcon />} />
-              {tarjetaId && <Chip label={`Tarjeta principal: ${tarjetaId.slice(0, 8)}...`} variant="outlined" />}
+            <Stack spacing={2}>
+              <Chip color="primary" label="Administración" icon={<AddCardRoundedIcon />} sx={{ alignSelf: 'flex-start' }} />
+              {selectedCardSummary && (
+                <Stack spacing={1.5}>
+                  <Box className="card-brand-pill" sx={{ background: selectedCardBrand.background }}>
+                    <img src={selectedCardBrand.logo} alt={`${selectedCardBrand.displayName} logo`} />
+                    <Stack spacing={0}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        {selectedCardBrand.displayName}
+                      </Typography>
+                      <Typography variant="body1">
+                        {selectedCardSummary.marca} · {selectedCardSummary.numeroEnmascarado}
+                      </Typography>
+                    </Stack>
+                  </Box>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap">
+                    <Chip
+                      icon={<CreditCardRoundedIcon />}
+                      label={selectedCardSummary.numeroEnmascarado}
+                      variant="outlined"
+                      size="medium"
+                    />
+                    {selectedAccountAlias && (
+                      <Chip label={`Cuenta: ${selectedAccountAlias}`} variant="outlined" size="medium" />
+                    )}
+                  </Stack>
+                </Stack>
+              )}
             </Stack>
 
             <Divider />
+
+            {availableAccounts.length > 0 && (
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  select
+                  label="Cuenta"
+                  value={selectedAccountId ?? ''}
+                  onChange={(event) => handleAccountChange(event.target.value as string)}
+                  fullWidth
+                  helperText="Cuenta asociada a la tarjeta"
+                >
+                  {availableAccounts.map((account) => (
+                    <MenuItem key={account.cuentaId} value={account.cuentaId}>
+                      {account.alias} · {account.moneda}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  label="Tarjeta"
+                  value={selectedTarjetaId ?? ''}
+                  onChange={(event) => handleCardChange(event.target.value as string)}
+                  fullWidth
+                  disabled={!dashboard.cards.length}
+                  helperText={dashboard.cards.length ? 'Seleccioná el plástico a debitar' : 'Sin tarjetas disponibles'}
+                >
+                  {dashboard.cards.map((cardOption) => (
+                    <MenuItem key={cardOption.tarjetaId} value={cardOption.tarjetaId}>
+                      {cardOption.marca} · {cardOption.numeroEnmascarado}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Stack>
+            )}
 
             <TextField
               label="Comercio"

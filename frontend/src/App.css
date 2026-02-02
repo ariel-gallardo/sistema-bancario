@@ -428,6 +428,42 @@
 
 .movements-paper {
   animation-delay: 0.4s;
+  padding: clamp(2rem, 3vw, 3.25rem);
+  min-height: 420px;
+}
+
+.movements-header {
+  margin-bottom: 0.5rem;
+}
+
+.movements-title {
+  font-size: clamp(1.75rem, 3vw, 2.3rem) !important;
+}
+
+.movement-item-row {
+  padding: 0.35rem 0;
+}
+
+.card-selector-field .MuiInputBase-root {
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.card-brand-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 15px 25px rgba(5, 8, 22, 0.45);
+}
+
+.card-brand-pill img {
+  width: 58px;
+  height: 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
 }
 
 .account-paper:hover,
