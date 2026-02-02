@@ -1,4 +1,3 @@
-Creame un sistema financiero con 4 aplicaciones que son microservicios
-para clientes, cuentas, tarjetas y pagos. Debes utilizar .Net con event sourcing
-usando EventFlow y SQL Server y graphql(Hotchocolate).
-tambien creale un frontend con reactjs + redux y material ui esta la carpeta base en frontend
+Perfil Desarrollador Fullstack (.NET + React.js + SQL Server) Ssr Modelo: Negocio financiero (clientes, cuentas, tarjetas, pagos) Consulta de saldo y últimos movimientos Contexto de negocio Estás trabajando en el backend y frontend de un sistema de tarjetas de crédito. Cada cliente puede tener una o varias cuentas y cada cuenta puede tener una o varias tarjetas asociadas. Queremos ofrecerle al cliente una vista rápida en su home banking que muestre: • Saldo actual de su cuenta principal. • Últimos 5 movimientos de la tarjeta de crédito principal.
+En cuanto al backend lo tenes dividido por servicios(apis) Utiliza entity framework y jwt cuando el usuario acceda va a ver sus datos.
+En cuanto al frontend: hacelo con material ui Literalmente es un home banking fijate. tenes las cuentas y sus saldos y abajo los ultimos 5 movimientos En el frontend acordate de utilizar redux.js

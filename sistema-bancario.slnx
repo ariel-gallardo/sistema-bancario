@@ -2,6 +2,12 @@
   <Folder Name="/Elementos de la solución/">
     <File Path=".github/prompts/Instrucciones.prompt.md" />
   </Folder>
+  <Folder Name="/Services/">
+    <Project Path="Servicios/Clientes/Clientes.csproj" />
+    <Project Path="Servicios/Cuentas/Cuentas.csproj" />
+    <Project Path="Servicios/Pagos/Pagos.csproj" />
+    <Project Path="Servicios/Tarjetas/Tarjetas.csproj" />
+  </Folder>
   <Project Path="SistemaBancario.AppHost/SistemaBancario.AppHost.csproj" Id="5547535b-6d87-4446-96c3-589dd9ba82a1" />
   <Project Path="SistemaBancario.ServiceDefaults/SistemaBancario.ServiceDefaults.csproj" />
 </Solution>
