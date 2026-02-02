@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -7,6 +6,8 @@ using Microsoft.IdentityModel.Tokens;
 using Pagos.Auth;
 using Pagos.Contracts;
 using Pagos.Data;
+using Pagos.Infrastructure;
+using Pagos.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,9 @@ builder.Services
 
 builder.Services.AddDbContext<PagosDbContext>(options => options.UseSqlServer(sqlConnection));
 builder.Services.AddScoped<PagosDbInitializer>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUserContext, UserContext>();
+builder.Services.AddScoped<IPagosService, PagosService>();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 var jwtSettings = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
@@ -64,59 +68,12 @@ var pagosApi = app.MapGroup("/api/pagos")
     .RequireAuthorization()
     .WithTags("Pagos");
 
-pagosApi.MapGet("/programados", async (ClaimsPrincipal user, PagosDbContext db, CancellationToken ct) =>
-    {
-        var clienteIdValue = user.FindFirstValue("clienteId");
-        if (!Guid.TryParse(clienteIdValue, out var clienteId))
-        {
-            return Results.Unauthorized();
-        }
-
-        var programados = await db.PagosProgramados.AsNoTracking()
-            .Where(p => p.ClienteId == clienteId)
-            .OrderBy(p => p.FechaProgramada)
-            .Select(p => new PagoProgramadoResponse(
-                p.Id,
-                p.Empresa,
-                p.Descripcion,
-                p.Importe,
-                p.Moneda,
-                p.FechaProgramada,
-                p.EsDebitoAutomatico,
-                p.Estado))
-            .ToListAsync(ct);
-
-        return Results.Ok(new PagosProgramadosResponse(programados));
-    })
+pagosApi.MapGet("/programados",
+        (IPagosService service, CancellationToken ct) => service.GetPagosProgramadosAsync(ct))
     .WithName("GetPagosProgramados");
 
-pagosApi.MapGet("/historial", async (ClaimsPrincipal user, PagosDbContext db, int? take, CancellationToken ct) =>
-    {
-        var clienteIdValue = user.FindFirstValue("clienteId");
-        if (!Guid.TryParse(clienteIdValue, out var clienteId))
-        {
-            return Results.Unauthorized();
-        }
-
-        var limit = Math.Clamp(take.GetValueOrDefault(5), 1, 20);
-
-        var historial = await db.PagosHistoricos.AsNoTracking()
-            .Where(p => p.ClienteId == clienteId)
-            .OrderByDescending(p => p.FechaPago)
-            .Take(limit)
-            .Select(p => new PagoHistoricoResponse(
-                p.Id,
-                p.Empresa,
-                p.Categoria,
-                p.Importe,
-                p.Moneda,
-                p.FechaPago,
-                p.MedioPago,
-                p.FueDebitoAutomatico))
-            .ToListAsync(ct);
-
-        return Results.Ok(new PagosHistorialResponse(historial));
-    })
+pagosApi.MapGet("/historial",
+        (int? take, IPagosService service, CancellationToken ct) => service.GetPagosHistorialAsync(take, ct))
     .WithName("GetPagosHistorial");
 
 app.MapGet("/", () => "Servicio de Pagos listo");

@@ -15,6 +15,7 @@ interface AuthProfile {
   nombre: string;
   email: string;
   expiraUtc: string;
+  esAdministrador: boolean;
 }
 
 interface AuthState {
@@ -72,6 +73,7 @@ const authSlice = createSlice({
           nombre: action.payload.nombre,
           email: action.payload.email,
           expiraUtc: action.payload.expiraUtc,
+          esAdministrador: action.payload.esAdministrador,
         };
       })
       .addCase(login.rejected, (state, action) => {

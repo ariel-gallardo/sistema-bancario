@@ -23,7 +23,8 @@ public class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenService
             new("clienteId", cliente.Id.ToString()),
             new("cuentaPrincipalId", cliente.CuentaPrincipalId.ToString()),
             new("tarjetaPrincipalId", cliente.TarjetaPrincipalId.ToString()),
-            new("nombre", cliente.NombreCompleto)
+            new("nombre", cliente.NombreCompleto),
+            new("esAdmin", cliente.EsAdministrador ? "true" : "false")
         };
 
         var token = new JwtSecurityToken(

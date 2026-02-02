@@ -6,5 +6,6 @@ public record LoginResponse(
     Guid TarjetaPrincipalId,
     string Nombre,
     string Email,
+    bool EsAdministrador,
     string Token,
     DateTime ExpiraUtc);

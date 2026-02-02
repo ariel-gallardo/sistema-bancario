@@ -1,10 +1,9 @@
-using System.Security.Claims;
 using System.Text;
 using Cuentas.Auth;
-using Cuentas.Contracts;
 using Cuentas.Data;
+using Cuentas.Infrastructure;
+using Cuentas.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -20,6 +19,9 @@ builder.Services
 
 builder.Services.AddDbContext<CuentasDbContext>(options => options.UseSqlServer(sqlConnection));
 builder.Services.AddScoped<CuentasDbInitializer>();
+builder.Services.AddScoped<ICuentasService, CuentasService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUserContext, UserContext>();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 var jwtSettings = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
@@ -63,90 +65,50 @@ app.UseAuthorization();
 
 var cuentasApi = app.MapGroup("/api/cuentas").RequireAuthorization().WithTags("Cuentas");
 
-cuentasApi.MapGet("/principal", async (ClaimsPrincipal user, CuentasDbContext db, CancellationToken ct) =>
+cuentasApi.MapGet("/principal", async (IUserContext userContext, ICuentasService cuentasService, CancellationToken ct) =>
     {
-        var clienteId = EndpointHelpers.GetClienteId(user);
-        if (clienteId is null)
+        if (userContext.ClienteId is null)
         {
             return Results.Unauthorized();
         }
 
-        var principal = await db.Cuentas.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ClienteId == clienteId && c.EsPrincipal, ct);
-
-        if (principal is null)
-        {
-            return Results.NotFound();
-        }
-
-        var summary = await EndpointHelpers.BuildAccountSummaryAsync(clienteId.Value, principal.Id, db, ct);
+        var summary = await cuentasService.GetCuentaPrincipalAsync(userContext.ClienteId.Value, ct);
         return summary is null ? Results.NotFound() : Results.Ok(summary);
     })
     .WithName("GetCuentaPrincipal");
 
-cuentasApi.MapGet("/{cuentaId:guid}", async (Guid cuentaId, ClaimsPrincipal user, CuentasDbContext db, CancellationToken ct) =>
+cuentasApi.MapGet("/{cuentaId:guid}", async (Guid cuentaId, IUserContext userContext, ICuentasService cuentasService, CancellationToken ct) =>
     {
-        var clienteId = EndpointHelpers.GetClienteId(user);
-        if (clienteId is null)
+        if (userContext.ClienteId is null)
         {
             return Results.Unauthorized();
         }
 
-        var summary = await EndpointHelpers.BuildAccountSummaryAsync(clienteId.Value, cuentaId, db, ct);
+        var summary = await cuentasService.GetCuentaByIdAsync(userContext.ClienteId.Value, cuentaId, ct);
         return summary is null ? Results.NotFound() : Results.Ok(summary);
     })
     .WithName("GetCuentaPorId");
 
-cuentasApi.MapPut("/{cuentaId:guid}/favorita", async (Guid cuentaId, ClaimsPrincipal user, CuentasDbContext db, CancellationToken ct) =>
+cuentasApi.MapPut("/{cuentaId:guid}/favorita", async (Guid cuentaId, IUserContext userContext, ICuentasService cuentasService, CancellationToken ct) =>
     {
-        var clienteId = EndpointHelpers.GetClienteId(user);
-        if (clienteId is null)
+        if (userContext.ClienteId is null)
         {
             return Results.Unauthorized();
         }
 
-        var cuentasCliente = await db.Cuentas
-            .Where(c => c.ClienteId == clienteId)
-            .ToListAsync(ct);
-
-        if (!cuentasCliente.Any(c => c.Id == cuentaId))
-        {
-            return Results.NotFound();
-        }
-
-        foreach (var cuenta in cuentasCliente)
-        {
-            cuenta.EsFavorita = cuenta.Id == cuentaId;
-        }
-
-        await db.SaveChangesAsync(ct);
-        return Results.NoContent();
+        var updated = await cuentasService.SetCuentaFavoritaAsync(userContext.ClienteId.Value, cuentaId, ct);
+        return updated ? Results.NoContent() : Results.NotFound();
     })
     .WithName("SetCuentaFavorita");
 
-cuentasApi.MapDelete("/favorita", async (ClaimsPrincipal user, CuentasDbContext db, CancellationToken ct) =>
+cuentasApi.MapDelete("/favorita", async (IUserContext userContext, ICuentasService cuentasService, CancellationToken ct) =>
     {
-        var clienteId = EndpointHelpers.GetClienteId(user);
-        if (clienteId is null)
+        if (userContext.ClienteId is null)
         {
             return Results.Unauthorized();
         }
 
-        var favoritas = await db.Cuentas
-            .Where(c => c.ClienteId == clienteId && c.EsFavorita)
-            .ToListAsync(ct);
-
-        if (favoritas.Count == 0)
-        {
-            return Results.NoContent();
-        }
-
-        foreach (var cuenta in favoritas)
-        {
-            cuenta.EsFavorita = false;
-        }
-
-        await db.SaveChangesAsync(ct);
+        await cuentasService.ClearCuentaFavoritaAsync(userContext.ClienteId.Value, ct);
         return Results.NoContent();
     })
     .WithName("ClearCuentaFavorita");
@@ -156,54 +118,3 @@ app.MapGet("/", () => "Servicio de Cuentas listo");
 await app.SeedCuentasAsync();
 
 app.Run();
-
-static class EndpointHelpers
-{
-    public static Guid? GetClienteId(ClaimsPrincipal user)
-    {
-        var clienteIdValue = user.FindFirstValue("clienteId");
-        return Guid.TryParse(clienteIdValue, out var clienteId) ? clienteId : null;
-    }
-
-    public static async Task<AccountSummaryResponse?> BuildAccountSummaryAsync(
-        Guid clienteId,
-        Guid cuentaId,
-        CuentasDbContext db,
-        CancellationToken ct)
-    {
-        var cuenta = await db.Cuentas.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ClienteId == clienteId && c.Id == cuentaId, ct);
-
-        if (cuenta is null)
-        {
-            return null;
-        }
-
-        var otrasCuentas = await db.Cuentas.AsNoTracking()
-            .Where(c => c.ClienteId == clienteId && c.Id != cuenta.Id)
-            .OrderByDescending(c => c.EsPrincipal)
-            .Select(c => new AccountSnapshot(
-                c.Id,
-                c.Alias,
-                c.Moneda,
-                c.SaldoActual,
-                c.EsPrincipal,
-                c.EsFavorita))
-            .ToListAsync(ct);
-
-        var saldoDisponible = cuenta.SaldoActual + cuenta.LimiteDescubierto;
-
-        return new AccountSummaryResponse(
-            cuenta.Id,
-            cuenta.Alias,
-            cuenta.Banco,
-            cuenta.Numero,
-            cuenta.Moneda,
-            cuenta.SaldoActual,
-            saldoDisponible,
-            cuenta.UltimaActualizacion,
-            cuenta.EsPrincipal,
-            cuenta.EsFavorita,
-            otrasCuentas);
-    }
-}

@@ -6,6 +6,7 @@ export interface LoginResponse {
   email: string;
   token: string;
   expiraUtc: string;
+  esAdministrador: boolean;
 }
 
 export interface AccountSnapshot {
@@ -51,4 +52,21 @@ export interface TarjetaMovimientosResponse {
   fechaCierre: string;
   fechaVencimiento: string;
   movimientos: MovimientoTarjetaResponse[];
+}
+
+export interface AdminOverviewResponse {
+  totalClientes: number;
+  solicitudesPendientes: number;
+  solicitudesRevisadas: number;
+  ultimaSolicitudUtc: string | null;
+}
+
+export interface ClienteRegistroSummary {
+  registroId: string;
+  nombreCompleto: string;
+  documento: string;
+  email: string;
+  telefono: string;
+  estado: string;
+  creadoEnUtc: string;
 }

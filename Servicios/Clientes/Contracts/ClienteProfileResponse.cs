@@ -6,4 +6,5 @@ public record ClienteProfileResponse(
     string Email,
     string Documento,
     Guid CuentaPrincipalId,
-    Guid TarjetaPrincipalId);
+    Guid TarjetaPrincipalId,
+    bool EsAdministrador);

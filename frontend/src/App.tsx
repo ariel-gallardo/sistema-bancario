@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Container, Grid, Stack } from '@mui/material';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Alert, Box, Button, Container, Grid, Stack, Typography } from '@mui/material';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import './App.css';
 import { useAppDispatch, useAppSelector } from './hooks';
 import { login, logout } from './features/auth/authSlice';
@@ -12,12 +12,15 @@ import DashboardHeader from './components/DashboardHeader';
 import SessionCard from './components/SessionCard';
 import AccountCard from './components/AccountCard';
 import MovementsCard from './components/MovementsCard';
+import AdminDashboard from './components/AdminDashboard';
+import AdminMovementsPanel from './components/AdminMovementsPanel';
 import type { AccountSnapshot } from './types/api';
 
 const App = () => {
   const dispatch = useAppDispatch();
   const auth = useAppSelector((state) => state.auth);
   const dashboard = useAppSelector((state) => state.dashboard);
+  const navigate = useNavigate();
 
   const [formState, setFormState] = useState({
     email: demoCredentials.email,
@@ -36,6 +39,16 @@ const App = () => {
   const handleLogout = () => {
     dispatch(logout());
   };
+
+  const isAdmin = auth.profile?.esAdministrador ?? false;
+
+  const handleNavigateAdmin = useCallback(() => {
+    navigate('/admin');
+  }, [navigate]);
+
+  const handleNavigateAdminMovements = useCallback(() => {
+    navigate('/admin/movimientos');
+  }, [navigate]);
 
   const loadAccount = useCallback(
     (accountId: string) => {
@@ -132,6 +145,26 @@ const App = () => {
       <div className="aurora-glow" aria-hidden />
       <Routes>
         <Route
+          path="/admin"
+          element={
+            auth.token && isAdmin ? (
+              <AdminDashboard />
+            ) : (
+              <Navigate to={auth.token ? '/dashboard' : '/login'} replace />
+            )
+          }
+        />
+        <Route
+          path="/admin/movimientos"
+          element={
+            auth.token && isAdmin ? (
+              <AdminMovementsPanel />
+            ) : (
+              <Navigate to={auth.token ? '/dashboard' : '/login'} replace />
+            )
+          }
+        />
+        <Route
           path="/"
           element={<Navigate to={auth.token ? '/dashboard' : '/login'} replace />}
         />
@@ -162,7 +195,39 @@ const App = () => {
             auth.token ? (
               <Container maxWidth="lg">
                 <Stack spacing={4} className="dashboard-container">
-                  <DashboardHeader greeting={greeting} onLogout={handleLogout} />
+                  <DashboardHeader
+                    greeting={greeting}
+                    onLogout={handleLogout}
+                    isAdmin={isAdmin}
+                    onNavigateAdmin={handleNavigateAdmin}
+                  />
+
+                  {isAdmin && (
+                    <Alert
+                      severity="info"
+                      variant="outlined"
+                      className="admin-panel-alert"
+                      action={
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                          <Button size="small" variant="contained" onClick={handleNavigateAdmin}>
+                            Panel principal
+                          </Button>
+                          <Button size="small" variant="outlined" onClick={handleNavigateAdminMovements}>
+                            Movimientos críticos
+                          </Button>
+                        </Stack>
+                      }
+                    >
+                      <Stack spacing={0.5}>
+                        <Typography variant="body2">
+                          Sos administrador. El botón "Panel admin" vive arriba a la derecha y te lleva al tablero en /admin.
+                        </Typography>
+                        <Typography variant="body2">
+                          También podés saltar directo al módulo de monitoreo en /admin/movimientos desde acá mismo.
+                        </Typography>
+                      </Stack>
+                    </Alert>
+                  )}
 
                   {auth.profile && <SessionCard profile={auth.profile} accountAlias={accountAlias} />}
 

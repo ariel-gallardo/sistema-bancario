@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Box, LinearProgress, Paper, Stack, Typography } from '@mui/material';
 import CreditScoreRoundedIcon from '@mui/icons-material/CreditScoreRounded';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
@@ -36,6 +37,8 @@ const AccountCard = ({
   formatDate,
 }: AccountCardProps) => {
   const hydratedAccount = account?.cuentaId === activeAccountId ? account : undefined;
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const toggleSuggestions = () => setShowSuggestions((prev) => !prev);
 
   return (
     <Paper elevation={0} className="account-paper">
@@ -83,6 +86,8 @@ const AccountCard = ({
                 onSelectAccount={onSelectAccount}
                 onToggleFavorite={onToggleFavorite}
                 formatCurrency={formatCurrency}
+                isExpanded={showSuggestions}
+                onToggleExpanded={toggleSuggestions}
               />
             )}
           </>

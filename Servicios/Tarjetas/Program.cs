@@ -1,13 +1,13 @@
-using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Tarjetas.Auth;
 using Tarjetas.Contracts;
 using Tarjetas.Data;
+using Tarjetas.Infrastructure;
+using Tarjetas.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +20,9 @@ builder.Services
 
 builder.Services.AddDbContext<TarjetasDbContext>(options => options.UseSqlServer(sqlConnection));
 builder.Services.AddScoped<TarjetasDbInitializer>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUserContext, UserContext>();
+builder.Services.AddScoped<ITarjetasService, TarjetasService>();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 var jwtSettings = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
@@ -63,56 +66,15 @@ app.UseAuthorization();
 
 var tarjetasApi = app.MapGroup("/api/tarjetas").RequireAuthorization().WithTags("Tarjetas");
 
-tarjetasApi.MapGet("/principal/movimientos", async (
-        ClaimsPrincipal user,
-        TarjetasDbContext db,
-        int? take,
-        CancellationToken ct) =>
-    {
-        var clienteIdValue = user.FindFirstValue("clienteId");
-        if (!Guid.TryParse(clienteIdValue, out var clienteId))
-        {
-            return Results.Unauthorized();
-        }
-
-        var tarjeta = await db.Tarjetas.AsNoTracking()
-            .FirstOrDefaultAsync(t => t.ClienteId == clienteId, ct);
-
-        if (tarjeta is null)
-        {
-            return Results.NotFound();
-        }
-
-        var limit = Math.Clamp(take.GetValueOrDefault(5), 1, 20);
-
-        var movimientos = await db.Movimientos.AsNoTracking()
-            .Where(m => m.TarjetaId == tarjeta.Id)
-            .OrderByDescending(m => m.Fecha)
-            .Take(limit)
-            .Select(m => new MovimientoTarjetaResponse(
-                m.Id,
-                m.Comercio,
-                m.Descripcion,
-                m.Categoria,
-                m.Importe,
-                m.Fecha))
-            .ToListAsync(ct);
-
-        var disponible = Math.Max(0, tarjeta.Limite - tarjeta.SaldoUtilizado);
-
-        return Results.Ok(new TarjetaMovimientosResponse(
-            tarjeta.Id,
-            tarjeta.Marca,
-            tarjeta.NumeroEnmascarado,
-            tarjeta.Limite,
-            tarjeta.SaldoUtilizado,
-            disponible,
-            tarjeta.PagoMinimo,
-            tarjeta.Cierre,
-            tarjeta.Vencimiento,
-            movimientos));
-    })
+tarjetasApi.MapGet("/principal/movimientos",
+        (int? take, ITarjetasService service, CancellationToken ct) =>
+            service.GetPrincipalMovimientosAsync(take, ct))
     .WithName("GetMovimientosTarjetaPrincipal");
+
+tarjetasApi.MapPost("/{tarjetaId:guid}/movimientos",
+        (Guid tarjetaId, CrearMovimientoRequest request, ITarjetasService service, CancellationToken ct) =>
+            service.AddMovimientoAsync(tarjetaId, request, ct))
+    .WithName("AddMovimientoTarjeta");
 
 app.MapGet("/", () => "Servicio de Tarjetas listo");
 
