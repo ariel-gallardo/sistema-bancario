@@ -14,11 +14,21 @@ var builder = WebApplication.CreateBuilder(args);
 var sqlConnection = builder.Configuration.GetConnectionString("SqlServer") ??
                     "Server=(localdb)\\MSSQLLocalDB;Database=SistemaBancario.Pagos;Trusted_Connection=True;MultipleActiveResultSets=true;Encrypt=False";
 
+var isTesting = builder.Environment.IsEnvironment("Testing");
+
 builder.Services
     .AddHealthChecks()
     .AddSqlServer(sqlConnection);
 
-builder.Services.AddDbContext<PagosDbContext>(options => options.UseSqlServer(sqlConnection));
+if (isTesting)
+{
+    var testingDatabaseName = builder.Configuration.GetValue<string>("Testing:DatabaseName") ?? "PagosTesting";
+    builder.Services.AddDbContext<PagosDbContext>(options => options.UseInMemoryDatabase(testingDatabaseName));
+}
+else
+{
+    builder.Services.AddDbContext<PagosDbContext>(options => options.UseSqlServer(sqlConnection));
+}
 builder.Services.AddScoped<PagosDbInitializer>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserContext, UserContext>();
@@ -78,6 +88,11 @@ pagosApi.MapGet("/historial",
 
 app.MapGet("/", () => "Servicio de Pagos listo");
 
-await app.SeedPagosAsync();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    await app.SeedPagosAsync();
+}
 
 app.Run();
+
+public partial class Program;

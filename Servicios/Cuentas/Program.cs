@@ -13,11 +13,21 @@ var builder = WebApplication.CreateBuilder(args);
 var sqlConnection = builder.Configuration.GetConnectionString("SqlServer") ??
                     "Server=(localdb)\\MSSQLLocalDB;Database=SistemaBancario.Cuentas;Trusted_Connection=True;MultipleActiveResultSets=true;Encrypt=False";
 
+var isTesting = builder.Environment.IsEnvironment("Testing");
+
 builder.Services
     .AddHealthChecks()
     .AddSqlServer(sqlConnection);
 
-builder.Services.AddDbContext<CuentasDbContext>(options => options.UseSqlServer(sqlConnection));
+if (isTesting)
+{
+    var testingDatabaseName = builder.Configuration.GetValue<string>("Testing:DatabaseName") ?? "CuentasTesting";
+    builder.Services.AddDbContext<CuentasDbContext>(options => options.UseInMemoryDatabase(testingDatabaseName));
+}
+else
+{
+    builder.Services.AddDbContext<CuentasDbContext>(options => options.UseSqlServer(sqlConnection));
+}
 builder.Services.AddScoped<CuentasDbInitializer>();
 builder.Services.AddScoped<ICuentasService, CuentasService>();
 builder.Services.AddHttpContextAccessor();
@@ -115,6 +125,11 @@ cuentasApi.MapDelete("/favorita", async (IUserContext userContext, ICuentasServi
 
 app.MapGet("/", () => "Servicio de Cuentas listo");
 
-await app.SeedCuentasAsync();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    await app.SeedCuentasAsync();
+}
 
 app.Run();
+
+public partial class Program;

@@ -17,12 +17,22 @@ var builder = WebApplication.CreateBuilder(args);
 var sqlConnection = builder.Configuration.GetConnectionString("SqlServer") ??
                     "Server=(localdb)\\MSSQLLocalDB;Database=SistemaBancario.Clientes;Trusted_Connection=True;MultipleActiveResultSets=true;Encrypt=False";
 
+var isTesting = builder.Environment.IsEnvironment("Testing");
+
 builder.Services
     .AddHealthChecks()
     .AddSqlServer(sqlConnection);
 
-builder.Services.AddDbContext<ClientesDbContext>(options =>
-    options.UseSqlServer(sqlConnection));
+if (isTesting)
+{
+    var testingDatabaseName = builder.Configuration.GetValue<string>("Testing:DatabaseName") ?? "ClientesTesting";
+    builder.Services.AddDbContext<ClientesDbContext>(options => options.UseInMemoryDatabase(testingDatabaseName));
+}
+else
+{
+    builder.Services.AddDbContext<ClientesDbContext>(options =>
+        options.UseSqlServer(sqlConnection));
+}
 
 builder.Services.AddScoped<ClientesDbInitializer>();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
@@ -205,6 +215,11 @@ adminApi.MapPost("/registros/{registroId:guid}/revisar", async (Guid registroId,
 
 app.MapGet("/", () => "Servicio de Clientes listo");
 
-await app.SeedClientesAsync();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    await app.SeedClientesAsync();
+}
 
 app.Run();
+
+public partial class Program;
