@@ -71,6 +71,16 @@ tarjetasApi.MapGet("/principal/movimientos",
             service.GetPrincipalMovimientosAsync(take, ct))
     .WithName("GetMovimientosTarjetaPrincipal");
 
+tarjetasApi.MapGet("/cuentas/{cuentaId:guid}",
+    (Guid cuentaId, ITarjetasService service, CancellationToken ct) =>
+        service.GetTarjetasByCuentaAsync(cuentaId, ct))
+    .WithName("GetTarjetasByCuenta");
+
+tarjetasApi.MapGet("/{tarjetaId:guid}/movimientos",
+    (Guid tarjetaId, int? take, ITarjetasService service, CancellationToken ct) =>
+        service.GetMovimientosByTarjetaAsync(tarjetaId, take, ct))
+    .WithName("GetMovimientosPorTarjeta");
+
 tarjetasApi.MapPost("/{tarjetaId:guid}/movimientos",
         (Guid tarjetaId, CrearMovimientoRequest request, ITarjetasService service, CancellationToken ct) =>
             service.AddMovimientoAsync(tarjetaId, request, ct))

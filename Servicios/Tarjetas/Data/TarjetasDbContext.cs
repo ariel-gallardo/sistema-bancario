@@ -13,11 +13,13 @@ public class TarjetasDbContext(DbContextOptions<TarjetasDbContext> options) : Db
         modelBuilder.Entity<TarjetaCredito>(builder =>
         {
             builder.HasKey(t => t.Id);
+            builder.Property(t => t.CuentaId).IsRequired();
             builder.Property(t => t.NumeroEnmascarado).HasMaxLength(32).IsRequired();
             builder.Property(t => t.Marca).HasMaxLength(40).IsRequired();
             builder.Property(t => t.Limite).HasPrecision(18, 2);
             builder.Property(t => t.SaldoUtilizado).HasPrecision(18, 2);
             builder.Property(t => t.PagoMinimo).HasPrecision(18, 2);
+            builder.HasIndex(t => new { t.ClienteId, t.CuentaId });
         });
 
         modelBuilder.Entity<MovimientoTarjeta>(builder =>

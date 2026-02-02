@@ -4,6 +4,7 @@ public class TarjetaCredito
 {
     public Guid Id { get; set; }
     public Guid ClienteId { get; set; }
+    public Guid CuentaId { get; set; }
     public required string NumeroEnmascarado { get; set; }
     public required string Marca { get; set; }
     public decimal Limite { get; set; }
