@@ -140,8 +140,32 @@ Credenciales demo (tambien visibles en la UI):
 - CORS restringido a `http://localhost:5173` por defecto.
 - `SistemaBancario.ServiceDefaults` incluye OpenTelemetry listo para habilitar trazas y metricas compartidas.
 
+## Pruebas automatizadas
+
+### Backend (.NET)
+- Cada microservicio cuenta con pruebas unitarias e integracion en `tests/Clientes.Tests`, `tests/Cuentas.Tests`, `tests/Pagos.Tests` y `tests/Tarjetas.Tests`.
+- Ejecuta toda la bateria con:
+   ```powershell
+   dotnet test sistema-bancario.slnx
+   ```
+- Los proyectos usan EF Core InMemory y `WebApplicationFactory` para montar los endpoints con autenticacion simulada, por lo que no se requiere una base real durante las pruebas.
+
+### Frontend (Playwright)
+- Las pruebas end-to-end viven en `frontend/tests/e2e` y utilizan Playwright para automatizar login, dashboard, panel admin y registro de movimientos.
+- Instalacion inicial:
+   ```powershell
+   cd frontend
+   npm install
+   npx playwright install
+   ```
+- Ejecucion:
+   ```powershell
+   npm run test:e2e
+   ```
+- El `playwright.config.ts` arranca Vite en puerto 4173 y maqueta las llamadas HTTP a los microservicios, por lo que la suite UI no necesita que los servicios .NET esten levantados.
+
 ## Proximos pasos sugeridos
 1. Consumir los endpoints de Pagos desde el frontend (widgets de pagos programados e historial).
 2. Referenciar `SistemaBancario.ServiceDefaults` en cada microservicio para habilitar trazas distribuidas.
-3. Agregar pruebas end to end (por ejemplo Playwright) para cubrir login y dashboard.
+3. Automatizar despliegues combinando pipelines que ejecuten `dotnet test` y `npm run test:e2e` antes de promover a QA/Prod.
 4. Contenerizar el frontend para despliegues homogeneiados junto al resto de los servicios.
