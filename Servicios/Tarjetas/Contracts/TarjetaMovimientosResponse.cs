@@ -2,6 +2,7 @@ namespace Tarjetas.Contracts;
 
 public record TarjetaMovimientosResponse(
     Guid TarjetaId,
+    Guid CuentaId,
     string Marca,
     string NumeroEnmascarado,
     decimal Limite,
@@ -19,3 +20,13 @@ public record MovimientoTarjetaResponse(
     string Categoria,
     decimal Importe,
     DateTime Fecha);
+
+public record TarjetaResumenResponse(
+    Guid TarjetaId,
+    Guid CuentaId,
+    string Marca,
+    string NumeroEnmascarado,
+    decimal Limite,
+    decimal SaldoUtilizado,
+    decimal Disponible,
+    bool EsPrincipal);

@@ -6,6 +6,7 @@ namespace Tarjetas.Infrastructure;
 public class UserContext : IUserContext
 {
     public Guid? ClienteId { get; }
+    public Guid? TarjetaPrincipalId { get; }
     public bool EsAdministrador { get; }
 
     public UserContext(IHttpContextAccessor accessor)
@@ -20,6 +21,12 @@ public class UserContext : IUserContext
         if (Guid.TryParse(clienteIdValue, out var clienteId))
         {
             ClienteId = clienteId;
+        }
+
+        var tarjetaIdValue = user.FindFirstValue("tarjetaPrincipalId");
+        if (Guid.TryParse(tarjetaIdValue, out var tarjetaId))
+        {
+            TarjetaPrincipalId = tarjetaId;
         }
 
         EsAdministrador = string.Equals(user.FindFirstValue("esAdmin"), "true", StringComparison.OrdinalIgnoreCase);
