@@ -8,6 +8,12 @@
     <Project Path="Servicios/Pagos/Pagos.csproj" />
     <Project Path="Servicios/Tarjetas/Tarjetas.csproj" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="tests/Tarjetas.Tests/Tarjetas.Tests.csproj" />
+    <Project Path="tests/Cuentas.Tests/Cuentas.Tests.csproj" />
+    <Project Path="tests/Clientes.Tests/Clientes.Tests.csproj" />
+    <Project Path="tests/Pagos.Tests/Pagos.Tests.csproj" />
+  </Folder>
   <Project Path="SistemaBancario.AppHost/SistemaBancario.AppHost.csproj" Id="5547535b-6d87-4446-96c3-589dd9ba82a1" />
   <Project Path="SistemaBancario.ServiceDefaults/SistemaBancario.ServiceDefaults.csproj" />
 </Solution>
