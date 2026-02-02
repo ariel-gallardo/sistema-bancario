@@ -325,6 +325,34 @@
   transition: all 0.3s ease;
 }
 
+.account-selector {
+  margin-top: 1rem;
+}
+
+.account-item {
+  padding: 1rem 1.25rem;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.3s ease;
+}
+
+.account-item.is-selected {
+  border-color: rgba(55, 183, 195, 0.6);
+  background: rgba(55, 183, 195, 0.08);
+  box-shadow: 0 12px 24px rgba(5, 8, 22, 0.4);
+}
+
+.account-item:hover {
+  border-color: rgba(55, 183, 195, 0.4);
+  transform: translateY(-2px);
+}
+
+.favorite-button {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .metric-badge:hover {
   background: rgba(55, 183, 195, 0.05);
   border-color: rgba(55, 183, 195, 0.2);
