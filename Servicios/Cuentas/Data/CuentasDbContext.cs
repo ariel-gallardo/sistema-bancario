@@ -18,7 +18,9 @@ public class CuentasDbContext(DbContextOptions<CuentasDbContext> options) : DbCo
             builder.Property(c => c.Moneda).HasMaxLength(4).IsRequired();
             builder.Property(c => c.SaldoActual).HasPrecision(18, 2);
             builder.Property(c => c.LimiteDescubierto).HasPrecision(18, 2);
+            builder.Property(c => c.EsFavorita).HasDefaultValue(false);
             builder.HasIndex(c => new { c.ClienteId, c.EsPrincipal });
+            builder.HasIndex(c => new { c.ClienteId, c.EsFavorita });
         });
     }
 }

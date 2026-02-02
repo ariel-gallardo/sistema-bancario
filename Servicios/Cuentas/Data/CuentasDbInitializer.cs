@@ -14,6 +14,7 @@ public class CuentasDbInitializer(CuentasDbContext context)
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         await _context.Database.EnsureCreatedAsync(cancellationToken);
+        await EnsureEsFavoritaColumnAsync(cancellationToken);
 
         if (await _context.Cuentas.AnyAsync(cancellationToken))
         {
@@ -34,6 +35,7 @@ public class CuentasDbInitializer(CuentasDbContext context)
                 SaldoActual = 875000.25m,
                 LimiteDescubierto = 100000m,
                 EsPrincipal = true,
+                EsFavorita = true,
                 UltimaActualizacion = now
             },
             new CuentaBancaria
@@ -47,9 +49,22 @@ public class CuentasDbInitializer(CuentasDbContext context)
                 SaldoActual = 3250.40m,
                 LimiteDescubierto = 0,
                 EsPrincipal = false,
+                EsFavorita = false,
                 UltimaActualizacion = now.AddMinutes(-12)
             });
 
         await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureEsFavoritaColumnAsync(CancellationToken cancellationToken)
+    {
+        const string sql = """
+            IF COL_LENGTH('Cuentas', 'EsFavorita') IS NULL
+            BEGIN
+                ALTER TABLE [Cuentas] ADD [EsFavorita] bit NOT NULL CONSTRAINT DF_Cuentas_EsFavorita DEFAULT(0);
+            END
+            """;
+
+        await _context.Database.ExecuteSqlRawAsync(sql, cancellationToken);
     }
 }

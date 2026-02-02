@@ -9,6 +9,8 @@ public record AccountSummaryResponse(
     decimal SaldoActual,
     decimal SaldoDisponible,
     DateTime UltimaActualizacion,
+    bool EsPrincipal,
+    bool EsFavorita,
     IReadOnlyCollection<AccountSnapshot> OtrasCuentas);
 
 public record AccountSnapshot(
@@ -16,4 +18,5 @@ public record AccountSnapshot(
     string Alias,
     string Moneda,
     decimal SaldoActual,
-    bool EsPrincipal);
+    bool EsPrincipal,
+    bool EsFavorita);

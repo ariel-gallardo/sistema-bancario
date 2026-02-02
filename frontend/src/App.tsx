@@ -1,10 +1,10 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Container, Grid, Stack } from '@mui/material';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import './App.css';
 import { useAppDispatch, useAppSelector } from './hooks';
 import { login, logout } from './features/auth/authSlice';
-import { fetchDashboardData } from './features/dashboard/dashboardSlice';
+import { fetchAccountById, fetchDashboardData, updateFavoriteAccount } from './features/dashboard/dashboardSlice';
 import { demoCredentials } from './config/api';
 import { formatCurrency, formatDate } from './utils/formatters';
 import LoginView from './components/LoginView';
@@ -12,6 +12,7 @@ import DashboardHeader from './components/DashboardHeader';
 import SessionCard from './components/SessionCard';
 import AccountCard from './components/AccountCard';
 import MovementsCard from './components/MovementsCard';
+import type { AccountSnapshot } from './types/api';
 
 const App = () => {
   const dispatch = useAppDispatch();
@@ -25,7 +26,7 @@ const App = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const [favoriteAccountId, setFavoriteAccountId] = useState<string | null>(null);
+  const favoriteAccountId = dashboard.favoriteAccountId;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -36,18 +37,30 @@ const App = () => {
     dispatch(logout());
   };
 
+  const loadAccount = useCallback(
+    (accountId: string) => {
+      if (!accountId) {
+        return;
+      }
+
+      if (selectedAccountId !== accountId) {
+        setSelectedAccountId(accountId);
+      }
+
+      if (dashboard.account?.cuentaId !== accountId) {
+        void dispatch(fetchAccountById(accountId));
+      }
+    },
+    [dashboard.account?.cuentaId, dispatch, selectedAccountId],
+  );
+
   const handleSelectAccount = (accountId: string) => {
-    setSelectedAccountId(accountId);
+    loadAccount(accountId);
   };
 
   const handleToggleFavorite = (accountId: string) => {
     const nextFavorite = favoriteAccountId === accountId ? null : accountId;
-    setFavoriteAccountId(nextFavorite);
-    if (nextFavorite) {
-      localStorage.setItem('favoriteAccountId', nextFavorite);
-    } else {
-      localStorage.removeItem('favoriteAccountId');
-    }
+    void dispatch(updateFavoriteAccount(nextFavorite));
   };
 
   useEffect(() => {
@@ -61,37 +74,39 @@ const App = () => {
 
   const accountAlias = dashboard.account?.alias ?? 'Cuenta sueldo';
 
-  const availableAccounts = useMemo(() => {
+  const availableAccounts = useMemo<AccountSnapshot[]>(() => {
     if (!dashboard.account) {
-      return [] as Array<{ cuentaId: string; alias: string; moneda: string; saldoActual: number; esPrincipal: boolean }>;
+      return [];
     }
-    const principal = {
+
+    const principal: AccountSnapshot = {
       cuentaId: dashboard.account.cuentaId,
       alias: dashboard.account.alias,
       moneda: dashboard.account.moneda,
       saldoActual: dashboard.account.saldoActual,
-      esPrincipal: true,
+      esPrincipal: dashboard.account.esPrincipal,
+      esFavorita: dashboard.account.esFavorita,
     };
+
     return [principal, ...dashboard.account.otrasCuentas];
   }, [dashboard.account]);
 
   useEffect(() => {
     if (!availableAccounts.length) {
+      if (selectedAccountId !== null) {
+        setSelectedAccountId(null);
+      }
       return;
     }
 
-    const storedFavorite = localStorage.getItem('favoriteAccountId');
-    const isFavoriteAvailable = storedFavorite && availableAccounts.some((account) => account.cuentaId === storedFavorite);
-    if (isFavoriteAvailable) {
-      setFavoriteAccountId(storedFavorite);
-    } else if (!favoriteAccountId) {
-      setFavoriteAccountId(availableAccounts[0].cuentaId);
-    }
+    const isSelectionValid = selectedAccountId
+      ? availableAccounts.some((account) => account.cuentaId === selectedAccountId)
+      : false;
 
-    if (!selectedAccountId || !availableAccounts.some((account) => account.cuentaId === selectedAccountId)) {
-      setSelectedAccountId(availableAccounts[0].cuentaId);
+    if (!isSelectionValid) {
+      loadAccount(availableAccounts[0].cuentaId);
     }
-  }, [availableAccounts, favoriteAccountId, selectedAccountId]);
+  }, [availableAccounts, loadAccount, selectedAccountId]);
 
   const activeAccountId = selectedAccountId ?? dashboard.account?.cuentaId ?? null;
   const selectedAccount = useMemo(
@@ -99,7 +114,7 @@ const App = () => {
     [availableAccounts, activeAccountId],
   );
 
-  const selectedIsPrincipal = selectedAccount?.cuentaId === dashboard.account?.cuentaId;
+  const selectedIsPrincipal = selectedAccount?.esPrincipal ?? false;
   const accountSubtitle = selectedIsPrincipal ? 'Cuenta principal activa' : 'Cuenta seleccionada';
 
   const movementAccentColors = ['#37b7c3', '#ffb547', '#f368a5', '#62d2a2', '#b892ff'];
@@ -157,7 +172,6 @@ const App = () => {
                         isLoading={isLoadingDashboard}
                         hasData={hasData}
                         accountSubtitle={accountSubtitle}
-                        selectedIsPrincipal={selectedIsPrincipal}
                         selectedAccount={selectedAccount}
                         account={dashboard.account}
                         availableAccounts={availableAccounts}

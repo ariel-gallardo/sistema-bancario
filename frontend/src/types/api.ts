@@ -14,6 +14,7 @@ export interface AccountSnapshot {
   moneda: string;
   saldoActual: number;
   esPrincipal: boolean;
+  esFavorita: boolean;
 }
 
 export interface AccountSummaryResponse {
@@ -25,6 +26,8 @@ export interface AccountSummaryResponse {
   saldoActual: number;
   saldoDisponible: number;
   ultimaActualizacion: string;
+  esPrincipal: boolean;
+  esFavorita: boolean;
   otrasCuentas: AccountSnapshot[];
 }
 

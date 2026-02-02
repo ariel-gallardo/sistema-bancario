@@ -11,5 +11,6 @@ public class CuentaBancaria
     public decimal SaldoActual { get; set; }
     public decimal LimiteDescubierto { get; set; }
     public bool EsPrincipal { get; set; }
+    public bool EsFavorita { get; set; }
     public DateTime UltimaActualizacion { get; set; }
 }

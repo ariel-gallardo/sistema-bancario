@@ -10,7 +10,6 @@ interface AccountCardProps {
   isLoading: boolean;
   hasData: boolean;
   accountSubtitle: string;
-  selectedIsPrincipal: boolean;
   selectedAccount?: AccountSnapshot;
   account?: AccountSummaryResponse;
   availableAccounts: AccountSnapshot[];
@@ -26,7 +25,6 @@ const AccountCard = ({
   isLoading,
   hasData,
   accountSubtitle,
-  selectedIsPrincipal,
   selectedAccount,
   account,
   availableAccounts,
@@ -36,62 +34,66 @@ const AccountCard = ({
   onToggleFavorite,
   formatCurrency,
   formatDate,
-}: AccountCardProps) => (
-  <Paper elevation={0} className="account-paper">
-    <Stack direction="row" justifyContent="space-between" alignItems="center">
-      <Stack spacing={1}>
-        <Typography variant="h5">Saldo cuenta seleccionada</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {accountSubtitle}
-          {selectedIsPrincipal && account
-            ? ` · Actualizado ${formatDate(account.ultimaActualizacion)}`
-            : ' · Actualización no disponible'}
-        </Typography>
-      </Stack>
-      <CreditScoreRoundedIcon fontSize="large" color="primary" />
-    </Stack>
-    <Box mt={3}>
-      {isLoading ? (
-        <LinearProgress />
-      ) : hasData ? (
-        <>
-          <Typography variant="h2" className="saldo-principal">
-            {selectedAccount ? formatCurrency(selectedAccount.saldoActual, selectedAccount.moneda) : '--'}
+}: AccountCardProps) => {
+  const hydratedAccount = account?.cuentaId === activeAccountId ? account : undefined;
+
+  return (
+    <Paper elevation={0} className="account-paper">
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack spacing={1}>
+          <Typography variant="h5">Saldo cuenta seleccionada</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {accountSubtitle}
+            {hydratedAccount
+              ? ` · Actualizado ${formatDate(hydratedAccount.ultimaActualizacion)}`
+              : ' · Actualización no disponible'}
           </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} mt={3}>
-            <MetricBadge
-              icon={<TrendingUpRoundedIcon />}
-              label="Saldo disponible"
-              value={
-                selectedIsPrincipal && account
-                  ? formatCurrency(account.saldoDisponible, account.moneda)
-                  : 'No disponible'
-              }
-            />
-            <MetricBadge
-              icon={<BoltRoundedIcon />}
-              label={selectedIsPrincipal ? 'Banco' : 'Moneda'}
-              value={selectedIsPrincipal && account ? account.banco : selectedAccount?.moneda ?? '--'}
-            />
-          </Stack>
-          {availableAccounts.length > 1 && (
-            <AccountSelector
-              accounts={availableAccounts}
-              activeAccountId={activeAccountId}
-              favoriteAccountId={favoriteAccountId}
-              onSelectAccount={onSelectAccount}
-              onToggleFavorite={onToggleFavorite}
-              formatCurrency={formatCurrency}
-            />
-          )}
-        </>
-      ) : (
-        <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-          Iniciá sesión para consultar tu saldo en tiempo real.
-        </Typography>
-      )}
-    </Box>
-  </Paper>
-);
+        </Stack>
+        <CreditScoreRoundedIcon fontSize="large" color="primary" />
+      </Stack>
+      <Box mt={3}>
+        {isLoading ? (
+          <LinearProgress />
+        ) : hasData ? (
+          <>
+            <Typography variant="h2" className="saldo-principal">
+              {selectedAccount ? formatCurrency(selectedAccount.saldoActual, selectedAccount.moneda) : '--'}
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} mt={3}>
+              <MetricBadge
+                icon={<TrendingUpRoundedIcon />}
+                label="Saldo disponible"
+                value={
+                  hydratedAccount
+                    ? formatCurrency(hydratedAccount.saldoDisponible, hydratedAccount.moneda)
+                    : 'No disponible'
+                }
+              />
+              <MetricBadge
+                icon={<BoltRoundedIcon />}
+                label={hydratedAccount ? 'Banco' : 'Moneda'}
+                value={hydratedAccount ? hydratedAccount.banco : selectedAccount?.moneda ?? '--'}
+              />
+            </Stack>
+            {availableAccounts.length > 1 && (
+              <AccountSelector
+                accounts={availableAccounts}
+                activeAccountId={activeAccountId}
+                favoriteAccountId={favoriteAccountId}
+                onSelectAccount={onSelectAccount}
+                onToggleFavorite={onToggleFavorite}
+                formatCurrency={formatCurrency}
+              />
+            )}
+          </>
+        ) : (
+          <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+            Iniciá sesión para consultar tu saldo en tiempo real.
+          </Typography>
+        )}
+      </Box>
+    </Paper>
+  );
+};
 
 export default AccountCard;
